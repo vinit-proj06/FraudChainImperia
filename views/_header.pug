@@ -3,9 +3,4 @@ header.main-header
     a.btn(href="/login") Login
   else
     if user.role === "admin"
-      //- a.btn(href="/add-collector") Add Collection Point
-      .main-header-img
-        img.main-header-img__img(src=`/img/${user.photo}` alt="#")
-    else
-      .main-header-img
-        img.main-header-img__img(src=`/img/${user.photo}` alt="#")
+      
