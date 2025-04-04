@@ -72,3 +72,20 @@ exports.getSubmitRecords = async (req, res) => {
     });
   }
 };
+
+exports.getAnalyze = async (req, res) => {
+  if (req.user.role !== 'org') {
+    return res.status(403).send('Access denied');
+  }
+  try {
+    res.render('analyze', {
+      user: req.user,
+      results: [] // Initially empty, populated client-side
+    });
+  } catch (err) {
+    res.status(500).render('analyze', {
+      user: req.user,
+      error: 'Failed to load analyze page'
+    });
+  }
+};

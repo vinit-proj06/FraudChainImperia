@@ -1,0 +1,216 @@
+extends base
+
+block content
+  .submit-container
+    header.submit-header
+      h2.submit-title Analyze User Data
+      p.submit-description Upload an Excel file or search to detect fraudsters and loan defaulters.
+
+    // Upload and Search Section
+    section.records-list
+      .form__group
+        label.form__label(for="dataFile") Upload Excel File
+        input#dataFile.form__input(type="file" accept=".xlsx, .xls")
+        button.btn.upload-btn#uploadBtn Upload and Analyze
+
+      .form__section.search-section
+        .form__group
+          label.form__label(for="fraudSearch") Search Fraudsters
+          input#fraudSearch.form__input(type="text" placeholder="e.g., Name or Email")
+        .form__group
+          label.form__label(for="defaultSearch") Search Loan Defaulters
+          input#defaultSearch.form__input(type="text" placeholder="e.g., Name or Email")
+        button.btn.search-btn#searchBtn Search
+
+    // Results Section
+    section.records-list
+      h3.records-title Analysis Results
+      #trainingStatus Training models...
+      #alerts
+      if results && results.length > 0
+        .table-wrapper
+          table.records-table
+            thead
+              tr
+                th Name
+                th Email
+                th Fraud Probability
+                th Loan Default Risk
+                th Country
+                th Details
+            tbody
+              each result in results
+                tr
+                  td= result.name
+                  td= result.email
+                  td= `${result.fraudProbability}%`
+                  td= `${result.defaultRisk}%`
+                  td= result.country
+                  td
+                    button.btn.details-btn(data-id=result.id) Show Details
+      else
+        p.records-empty No results to display yet.
+
+    footer.submit-footer
+      p.footer-text © 2025 Fraud Chain. All rights reserved.
+      a.footer-link(href="/contact") Contact Support
+
+  script(src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js")
+  script(src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js")
+  script.
+    let users = !{JSON.stringify(results || [])};
+
+    const fraudTrainingDataRaw = [
+      [1, 3, 3000, 900, 1],  // Safe
+      [0, 4, 0, 1200, 1],    // Safe
+      [2, 1, 20000, 300, 2], // Fraud
+      [3, 0, 25000, 0, 1],   // Fraud
+      [1, 4, 2000, 1000, 1], // Safe
+      [4, 1, 35000, 400, 3]  // Fraud
+    ];
+    const fraudLabelsRaw = [0, 0, 1, 1, 0, 1];
+
+    const defaultTrainingDataRaw = [
+      [2, 5000, 1, 30],   // Low risk
+      [1, 2000, 0, 15],   // Low risk
+      [5, 15000, 2, 90],  // High risk
+      [3, 10000, 1, 60],  // High risk
+      [1, 3000, 0, 20],   // Low risk
+      [4, 20000, 3, 120]  // High risk
+    ];
+    const defaultLabelsRaw = [0, 0, 1, 1, 0, 1];
+
+    function normalize(data) {
+      const mins = tf.min(data, 0);
+      const maxs = tf.max(data, 0);
+      return data.sub(mins).div(maxs.sub(mins).add(1e-6));
+    }
+
+    const fraudModel = tf.sequential();
+    fraudModel.add(tf.layers.dense({ units: 8, inputShape: [5], activation: 'relu' }));
+    fraudModel.add(tf.layers.dense({ units: 4, activation: 'relu' }));
+    fraudModel.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
+    fraudModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+
+    const defaultModel = tf.sequential();
+    defaultModel.add(tf.layers.dense({ units: 8, inputShape: [4], activation: 'relu' }));
+    defaultModel.add(tf.layers.dense({ units: 4, activation: 'relu' }));
+    defaultModel.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
+    defaultModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+
+    async function trainModels() {
+      const fraudData = normalize(tf.tensor2d(fraudTrainingDataRaw));
+      const fraudLabels = tf.tensor2d(fraudLabelsRaw, [fraudLabelsRaw.length, 1]);
+      const defaultData = normalize(tf.tensor2d(defaultTrainingDataRaw));
+      const defaultLabels = tf.tensor2d(defaultLabelsRaw, [defaultLabelsRaw.length, 1]);
+
+      await Promise.all([
+        fraudModel.fit(fraudData, fraudLabels, { epochs: 100, shuffle: true }),
+        defaultModel.fit(defaultData, defaultLabels, { epochs: 100, shuffle: true })
+      ]);
+      document.getElementById('trainingStatus').innerText = 'Models trained!';
+    }
+
+    function extractFraudFeatures(user) {
+      const loans = user.records.filter(r => r.type === 'loan') || [];
+      const transactions = user.records.filter(r => r.type === 'transaction') || [];
+      const totalLoanAmount = loans.reduce((sum, r) => sum + r.amount, 0);
+      const totalTransactionAmount = transactions.reduce((sum, r) => sum + r.amount, 0);
+      const uniqueCountries = new Set(user.records.map(r => r.country)).size;
+      return [loans.length, transactions.length, totalLoanAmount, totalTransactionAmount, uniqueCountries];
+    }
+
+    function extractDefaultFeatures(user) {
+      const loans = user.records.filter(r => r.type === 'loan') || [];
+      const totalLoanAmount = loans.reduce((sum, r) => sum + r.amount, 0);
+      const uniqueCountries = new Set(user.records.map(r => r.country)).size;
+      const daysOverdue = loans.reduce((sum, r) => sum + (r.daysOverdue || 0), 0);
+      return [loans.length, totalLoanAmount, uniqueCountries, daysOverdue];
+    }
+
+    async function predictFraud(user) {
+      const features = normalize(tf.tensor2d([extractFraudFeatures(user)]));
+      const prediction = fraudModel.predict(features);
+      const probability = (await prediction.data())[0] * 100;
+      features.dispose();
+      prediction.dispose();
+      return Math.round(probability);
+    }
+
+    async function predictDefault(user) {
+      const features = normalize(tf.tensor2d([extractDefaultFeatures(user)]));
+      const prediction = defaultModel.predict(features);
+      const probability = (await prediction.data())[0] * 100;
+      features.dispose();
+      prediction.dispose();
+      return Math.round(probability);
+    }
+
+    async function analyzeData(data) {
+      users = data.map(user => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        country: user.country,
+        records: user.records || []
+      }));
+      const results = [];
+      for (const user of users) {
+        const fraudProbability = await predictFraud(user);
+        const defaultRisk = await predictDefault(user);
+        results.push({ ...user, fraudProbability, defaultRisk });
+      }
+      renderResults(results);
+    }
+
+    function renderResults(results) {
+      const tbody = document.querySelector('.records-table tbody');
+      tbody.innerHTML = '';
+      results.forEach(result => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${result.name}</td>
+          <td>${result.email}</td>
+          <td>${result.fraudProbability}%</td>
+          <td>${result.defaultRisk}%</td>
+          <td>${result.country}</td>
+          <td><button class="btn details-btn" data-id="${result.id}">Show Details</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.querySelector('.records-empty')?.remove();
+    }
+
+    document.getElementById('uploadBtn').addEventListener('click', async () => {
+      const file = document.getElementById('dataFile').files[0];
+      if (!file) return alert('Please upload a file');
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+        await analyzeData(jsonData);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    document.getElementById('searchBtn').addEventListener('click', () => {
+      const fraudQuery = document.getElementById('fraudSearch').value.toLowerCase();
+      const defaultQuery = document.getElementById('defaultSearch').value.toLowerCase();
+      const filtered = users.filter(user =>
+        (fraudQuery && (user.name.toLowerCase().includes(fraudQuery) || user.email.toLowerCase().includes(fraudQuery))) ||
+        (defaultQuery && (user.name.toLowerCase().includes(defaultQuery) || user.email.toLowerCase().includes(defaultQuery)))
+      );
+      analyzeData(filtered);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('details-btn')) {
+        const id = e.target.dataset.id;
+        const user = users.find(u => u.id == id);
+        alert(`Details for ${user.name}:\n${user.records.map(r => `${r.type}: $${r.amount} (${r.country})`).join('\n')}`);
+      }
+    });
+
+    trainModels();

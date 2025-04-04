@@ -9,6 +9,7 @@ router.use(authController.isLoggedIn);
 
 router.get('/', viewsController.getOverview);
 router.get('/login', viewsController.getLoginForm);
+router.get('/analyze', viewsController.getAnalyze);
 // Submit Records Routes
 router
   .route('/submit-records')

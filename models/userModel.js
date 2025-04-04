@@ -20,9 +20,9 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'org', 'validator', 'admin', 'analyst'],
     default: 'user'
   },
-  points:{type: Number, default: 0},
-  createdAt: {type: Date, default: Date.now()},
-  isVerified: {type: Boolean, default: false},
+  points: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now() },
+  isVerified: { type: Boolean, default: false },
   password: {
     type: String,
     required: [true, 'Please provide a password'],
