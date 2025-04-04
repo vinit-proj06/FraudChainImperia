@@ -74,9 +74,9 @@ exports.getSubmitRecords = async (req, res) => {
 };
 
 exports.getAnalyze = async (req, res) => {
-  if (req.user.role !== 'org') {
-    return res.status(403).send('Access denied');
-  }
+  // if (req.user.role !== 'org') {
+  //   return res.status(403).send('Access denied');
+  // }
   try {
     res.render('analyze', {
       user: req.user,
