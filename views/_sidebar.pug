@@ -1,0 +1,23 @@
+mixin menuItem(href, iconClass, text, extraClass)
+  li.sidebar-menu-item
+    a.sidebar-menu-item-link(class=extraClass, href=href)
+      i(class=iconClass)
+      span= text
+
+aside.sidebar
+  .sidebar-logo
+    i.fa-brands.fa-envira.sidebar-logo-icon
+    p.sidebar-logo-text FChain
+  ul.sidebar-menu
+    +menuItem("/", "fa-solid fa-house icon", "Home", "")
+    if (user)
+      if (user.role === "user")
+        +menuItem("/near-me", "fa-solid fa-location-dot icon", "Near me", "")
+        +menuItem("/donate", "fa-solid fa-handshake-angle icon", "Donate", "")
+      else if (user.role === "collector")
+        +menuItem("/collect", "fa-solid fa-bag-shopping icon", "Collect", "")
+      else if (user.role === "admin")
+        +menuItem("/donations", "fa-solid fa-handshake-angle icon", "Donations", "")
+    +menuItem("/contact", "fa-solid fa-phone icon", "Contact Us", "")
+    if (user)
+      +menuItem("/logout", "fa-solid fa-right-from-bracket icon icon--logout", "Logout", "logout")

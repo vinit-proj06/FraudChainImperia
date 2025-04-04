@@ -5,18 +5,21 @@ const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
+const path = require('path');
 
 const AppError = require('./utils/appError');
 const globalErrorHandler = require('./controllers/errorController');
 const recordRouter = require('./routes/recordRoutes');
 const userRouter = require('./routes/userRoutes');
-// const reviewRouter = require('./routes/reviewRoutes');
+const viewRouter = require('./routes/viewRoutes');
 
 const app = express();
 
 // 1) GLOBAL MIDDLEWARES
 // Set security HTTP headers
 app.use(helmet());
+
+app.use(express.static(path.resolve(__dirname, 'public')));
 
 // Development logging
 if (process.env.NODE_ENV === 'development') {
@@ -54,9 +57,6 @@ app.use(
   })
 );
 
-// Serving static files
-app.use(express.static(`${__dirname}/public`));
-
 // Test middleware
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
@@ -64,8 +64,12 @@ app.use((req, res, next) => {
   next();
 });
 
+app.set('view engine', 'pug');
+app.set('views', path.resolve(__dirname, 'views'));
+
 // 3) ROUTES
 // app.use('/api/v1/tours', tourRouter);
+app.use('/', viewRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/records', recordRouter);
 

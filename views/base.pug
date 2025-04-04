@@ -1,0 +1,17 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset="UTF-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1.0")
+    title Fraud Chain
+    link(rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css")
+    link(href="https://fonts.googleapis.com/css2?family=Nunito:wght@200;300;400;600;700;800;900&display=swap" rel="stylesheet")
+    link(rel="stylesheet" href="/css/style.css")
+
+  body
+    .container
+      include _sidebar
+      main.main
+        include _header
+        .main-container
+          block content
