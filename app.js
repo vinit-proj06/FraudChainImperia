@@ -12,9 +12,13 @@ const globalErrorHandler = require('./controllers/errorController');
 const recordRouter = require('./routes/recordRoutes');
 const userRouter = require('./routes/userRoutes');
 const viewRouter = require('./routes/viewRoutes');
+const cookieParser = require('cookie-parser');
 
 const app = express();
 
+app.set('view engine', 'pug');
+app.set('views', path.resolve(__dirname, 'views'));
+app.use(cookieParser());
 // 1) GLOBAL MIDDLEWARES
 // Set security HTTP headers
 app.use(helmet());
@@ -63,9 +67,6 @@ app.use((req, res, next) => {
   // console.log(req.headers);
   next();
 });
-
-app.set('view engine', 'pug');
-app.set('views', path.resolve(__dirname, 'views'));
 
 // 3) ROUTES
 // app.use('/api/v1/tours', tourRouter);
