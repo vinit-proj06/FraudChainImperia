@@ -37,6 +37,10 @@ exports.updateOne = Model =>
 
 exports.createOne = Model =>
   catchAsync(async (req, res, next) => {
+
+    if (!req.body.isAnonymous && req.user) {
+      req.body.userId = req.user._id; 
+    }
     const doc = await Model.create(req.body);
 
     res.status(201).json({
