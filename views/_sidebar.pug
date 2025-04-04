@@ -9,15 +9,32 @@ aside.sidebar
     i.fa-brands.fa-envira.sidebar-logo-icon
     p.sidebar-logo-text FChain
   ul.sidebar-menu
+    // Always show Home
     +menuItem("/", "fa-solid fa-house icon", "Home", "")
-    if (user)
-      if (user.role === "user")
-        +menuItem("/near-me", "fa-solid fa-location-dot icon", "Near me", "")
-        +menuItem("/donate", "fa-solid fa-handshake-angle icon", "Donate", "")
-      else if (user.role === "collector")
-        +menuItem("/collect", "fa-solid fa-bag-shopping icon", "Collect", "")
-      else if (user.role === "admin")
-        +menuItem("/donations", "fa-solid fa-handshake-angle icon", "Donations", "")
-    +menuItem("/contact", "fa-solid fa-phone icon", "Contact Us", "")
-    if (user)
+    
+    // If not logged in, only show Contact Us after Home
+    if !user
+      +menuItem("/contact", "fa-solid fa-phone icon", "Contact Us", "")
+    
+    // If logged in, show role-specific menu items
+    if user
+      // Common items for all logged-in users
+      +menuItem("/dashboard", "fa-solid fa-gauge icon", "Dashboard", "")
+      +menuItem("/profile", "fa-solid fa-user icon", "Profile", "")
+      
+      // Role-specific items
+      if user.role === "user"
+        +menuItem("/submit-records", "fa-solid fa-file-import icon", "Submit Records", "")
+        +menuItem("/contact", "fa-solid fa-phone icon", "Contact Us", "")
+      else if user.role === "organization"
+        +menuItem("/log-audit-trail", "fa-solid fa-book icon", "Log Audit Trail", "")
+        +menuItem("/submit-records", "fa-solid fa-file-import icon", "Submit Records", "")
+        +menuItem("/analyze", "fa-solid fa-chart-line icon", "Analyze", "")
+        +menuItem("/contact", "fa-solid fa-phone icon", "Contact Us", "")
+      else if user.role === "validator"
+        +menuItem("/log-audit-trail", "fa-solid fa-book icon", "Log Audit Trail", "")
+        +menuItem("/reviews", "fa-solid fa-star icon", "Reviews", "")
+        +menuItem("/contact", "fa-solid fa-phone icon", "Contact Us", "")
+      
+      // Logout for all logged-in users
       +menuItem("/logout", "fa-solid fa-right-from-bracket icon icon--logout", "Logout", "logout")
