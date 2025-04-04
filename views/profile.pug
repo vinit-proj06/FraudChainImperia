@@ -1,0 +1,132 @@
+extends base
+
+block content
+  .profile-container
+    // Profile Header
+    header.profile-header
+      h2.profile-title Your Profile
+      p.profile-subtitle Manage your account and role-specific details
+
+    // Profile Content
+    section.profile-content
+      if user
+        .profile-card
+          // Common Profile Information
+          .profile-info
+            h3.profile-info-title Account Details
+            .info-grid
+              .info-item
+                label Name:
+                span= user.name || 'Not provided'
+              .info-item
+                label Email:
+                span= user.email || 'Not provided'
+              .info-item
+                label Role:
+                span= user.role.charAt(0).toUpperCase() + user.role.slice(1)
+              if user.profilePic
+                .info-item
+                  label Profile Picture:
+                  img.profile-pic(src=user.profilePic, alt="Profile Picture", width="100")
+
+          // Role-Specific Information
+          if user.role === 'user'
+            .role-specific
+              h3.role-title User Details
+              .info-grid
+                .info-item
+                  label Records Submitted:
+                  span= user.recordsSubmitted || 0
+                .info-item
+                  label Last Submission:
+                  span= user.lastSubmission ? new Date(user.lastSubmission).toLocaleDateString() : 'None'
+
+          else if user.role === 'validator'
+            .role-specific
+              h3.role-title Validator Details
+              .info-grid
+                .info-item
+                  label Reviews Completed:
+                  span= user.reviewsCompleted || 0
+                .info-item
+                  label Validation Accuracy:
+                  span= user.validationAccuracy ? `${user.validationAccuracy}%` : 'N/A'
+                .info-item
+                  label Last Review:
+                  span= user.lastReview ? new Date(user.lastReview).toLocaleDateString() : 'None'
+
+          else if user.role === 'org'
+            .role-specific
+              h3.role-title Organization Details
+              .info-grid
+                .info-item
+                  label Organization Name:
+                  span= user.orgName || 'Not provided'
+                .info-item
+                  label Records Analyzed:
+                  span= user.recordsAnalyzed || 0
+                .info-item
+                  label Audit Trails Logged:
+                  span= user.auditTrailsLogged || 0
+
+          // Edit Profile Button
+          .profile-actions
+            a.btn.edit-btn(href="/profile/edit") Edit Profile
+
+      else
+        .no-user
+          p You are not logged in.
+          a.btn(href="/login") Go to Login
+
+    // Profile Footer
+    footer.profile-footer
+      p.footer-text Need help? 
+        a.footer-link(href="/contact") Contact Support
+
+  // Inline Styles (Optional - Move to CSS file for production)
+  style.
+    .profile-container {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+    .profile-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .profile-card {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      padding: 2rem;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .info-item label {
+      font-weight: bold;
+      margin-right: 0.5rem;
+    }
+    .role-specific {
+      margin-top: 2rem;
+      border-top: 1px solid #eee;
+      padding-top: 1rem;
+    }
+    .profile-actions {
+      margin-top: 2rem;
+      text-align: center;
+    }
+    .edit-btn {
+      background: var(--color-3);
+      color: white;
+      padding: 0.5rem 1rem;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+    .profile-pic {
+      border-radius: 50%;
+      margin-top: 0.5rem;
+    }
