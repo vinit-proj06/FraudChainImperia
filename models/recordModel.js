@@ -1,30 +1,16 @@
 const mongoose = require('mongoose');
 
 const recordSchema = new mongoose.Schema({
-  data: {
-    type: String,
-    required: [true, 'Please provide data']
+  action: { type: String, required: true },
+  countryCode: { type: String, required: true },
+  entity: { type: String, required: true },
+  amount: { type: Number, required: true },
+  submittedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  userId: {
-    type: mongoose.Schema.ObjectId,
-    ref: 'User'
-  },
-  isAnonymous: {
-    type: Boolean,
-    default: false
-  },
-  hash: {
-    type: String,
-    required: [true, 'Please provide hash']
-  },
-  validated: {
-    type: Boolean,
-    default: false
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now()
-  }
+  submittedAt: { type: Date, default: Date.now }
 });
 
 const Record = mongoose.model('Record', recordSchema);

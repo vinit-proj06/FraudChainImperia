@@ -7,12 +7,12 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const path = require('path');
 
+const cookieParser = require('cookie-parser');
 const AppError = require('./utils/appError');
 const globalErrorHandler = require('./controllers/errorController');
 const recordRouter = require('./routes/recordRoutes');
 const userRouter = require('./routes/userRoutes');
 const viewRouter = require('./routes/viewRoutes');
-const cookieParser = require('cookie-parser');
 
 const app = express();
 
@@ -24,6 +24,7 @@ app.use(cookieParser());
 app.use(helmet());
 
 app.use(express.static(path.resolve(__dirname, 'public')));
+app.use(express.urlencoded({ extended: true })); // Parse form data
 
 // Development logging
 if (process.env.NODE_ENV === 'development') {

@@ -1,0 +1,72 @@
+extends base
+
+block content
+  .submit-container
+    header.submit-header
+      h2.submit-title Submit Financial Risk Record
+      p.submit-description Share critical data on loan defaulters, fraudulent users, or illegitimate organizations securely.
+
+    // Form Section
+    form.form.form--submit(action="/submit-records" method="POST")
+      .form__section
+        .form__group
+          label.form__label(for="action") Action Type
+          select#action.form__input(name="action" required)
+            option(value="" disabled selected) Choose an action
+            option(value="fraud") Report Fraudulent Activity
+            option(value="default") Report Loan Default
+            option(value="illegitimate") Report Illegitimate Organization
+
+        .form__group
+          label.form__label(for="countryCode") Country of Origin
+          select#countryCode.form__input(name="countryCode" required)
+            option(value="" disabled selected) Select a country
+            option(value="US") US - United States
+            option(value="IN") IN - India
+            option(value="UK") UK - United Kingdom
+            option(value="CA") CA - Canada
+            option(value="AU") AU - Australia
+
+        .form__group
+          label.form__label(for="entity") Entity Name
+          input#entity.form__input(type="text" name="entity" placeholder="e.g., John Doe or XYZ Corp" required)
+
+        .form__group
+          label.form__label(for="amount") Amount Involved (USD)
+          input#amount.form__input(type="number" name="amount" placeholder="e.g., 5000.00" min="0" step="0.01" required)
+
+      if error
+        p.form__error= error
+
+      .form__footer
+        button.btn.submit-btn(type="submit") Submit Record
+        a.btn.cancel-btn(href="/dashboard") Cancel
+
+    // Records List Section
+    section.records-list
+      h3.records-title Submitted Records
+      if records && records.length > 0
+        .table-wrapper
+          table.records-table
+            thead
+              tr
+                th Action
+                th Country
+                th Entity
+                th Amount (USD)
+                th Submitted At
+            tbody
+              each record in records
+                tr
+                  td= record.action.charAt(0).toUpperCase() + record.action.slice(1)
+                  td= record.countryCode
+                  td= record.entity
+                  td= record.amount.toFixed(2)
+                  td= new Date(record.submittedAt).toLocaleDateString()
+      else
+        p.records-empty No records submitted yet.
+
+    // Footer Section
+    footer.submit-footer
+      p.footer-text &copy; 2025 Fraud Chain. All rights reserved.
+      a.footer-link(href="/contact") Contact Support

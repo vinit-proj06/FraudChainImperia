@@ -1,4 +1,6 @@
 header.main-header
-  if(!user)
+  if !user
     a.btn(href="/login") Login
-      
+  else
+    // Optionally add user-specific header content (e.g., profile picture or logout)
+    a.btn(href="/logout") Logout

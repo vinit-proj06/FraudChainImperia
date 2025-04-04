@@ -1,0 +1,90 @@
+extends base
+
+block content
+  .home-container
+    // Hero Section
+    section.hero
+      h1.hero-title Fraud Chain
+      p.hero-subtitle A Global Platform for Financial Risk Intelligence
+      p.hero-description Securely share and analyze data on loan defaulters, fraudulent users, and illegitimate organizations across borders.
+      if !user
+        a.btn.hero-btn(href="/login") Get Started
+      else
+        a.btn.hero-btn(href="/dashboard") Go to Dashboard
+
+    // Charts and Analysis Section
+    section.analysis
+      h2.section-title Risk Analysis Overview
+      .charts-grid
+        .chart-item
+          h3.chart-title Loan Default Trends
+          canvas#loanDefaultChart
+        .chart-item
+          h3.chart-title Fraudulent Activity by Region
+          canvas#fraudRegionChart
+        .chart-item
+          h3.chart-title Illegitimate Organizations Detected
+          canvas#orgChart
+
+    // Sensex/Market Data Section
+    section.market-data
+      h2.section-title Market Insights
+      .market-grid
+        .market-item
+          h3 Sensex Index
+          p#sensexValue 79,043.81 
+            span.trend.up +1.23%
+          p Last updated: April 04, 2025
+        .market-item
+          h3 Global Risk Index
+          p#riskIndex 142.5 
+            span.trend.down -0.87%
+          p Based on platform data
+
+    // Footer Call-to-Action
+    section.cta
+      h2.cta-title Join the Fight Against Financial Fraud
+      p.cta-text Collaborate with institutions worldwide to build a safer financial ecosystem.
+      a.btn.cta-btn(href="/register") Register Your Institution
+
+  script.
+    document.addEventListener('DOMContentLoaded', () => {
+      const loanDefaultCtx = document.getElementById('loanDefaultChart').getContext('2d');
+      new Chart(loanDefaultCtx, {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Feb', 'Mar', 'Apr'],
+          datasets: [{
+            label: 'Loan Defaults',
+            data: [120, 150, 130, 170],
+            borderColor: 'var(--color-3)',
+            fill: false
+          }]
+        }
+      });
+
+      const fraudRegionCtx = document.getElementById('fraudRegionChart').getContext('2d');
+      new Chart(fraudRegionCtx, {
+        type: 'bar',
+        data: {
+          labels: ['North America', 'Europe', 'Asia', 'Africa'],
+          datasets: [{
+            label: 'Fraud Cases',
+            data: [50, 70, 90, 30],
+            backgroundColor: 'var(--color-4)'
+          }]
+        }
+      });
+
+      const orgCtx = document.getElementById('orgChart').getContext('2d');
+      new Chart(orgCtx, {
+        type: 'pie',
+        data: {
+          labels: ['Verified', 'Suspected', 'Confirmed'],
+          datasets: [{
+            data: [60, 25, 15],
+            backgroundColor: ['var(--color-1)', 'var(--color-2)', 'var(--color-3)']
+          }]
+        }
+      });
+    });
