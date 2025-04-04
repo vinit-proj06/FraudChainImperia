@@ -7,11 +7,13 @@ block content
       p.submit-description Upload an Excel file or search to detect fraudsters and loan defaulters.
 
     // Upload and Search Section
-    section.records-list
-      .form__group
-        label.form__label(for="dataFile") Upload Excel File
-        input#dataFile.form__input(type="file" accept=".xlsx, .xls")
-        button.btn.upload-btn#uploadBtn Upload and Analyze
+    form.form.form--analyze
+      .form__section.upload-section
+        .form__group
+          label.form__label(for="dataFile") Upload Excel File
+          input#dataFile.form__input(type="file" accept=".xlsx, .xls" required)
+        .form__group
+          button.btn.upload-btn(type="button" onclick="analyzeFile()") Upload and Analyze
 
       .form__section.search-section
         .form__group
@@ -20,25 +22,26 @@ block content
         .form__group
           label.form__label(for="defaultSearch") Search Loan Defaulters
           input#defaultSearch.form__input(type="text" placeholder="e.g., Name or Email")
-        button.btn.search-btn#searchBtn Search
+        .form__group
+          button.btn.search-btn(type="button" onclick="searchData()") Search
 
     // Results Section
     section.records-list
       h3.records-title Analysis Results
       #trainingStatus Training models...
       #alerts
-      if results && results.length > 0
-        .table-wrapper
-          table.records-table
-            thead
-              tr
-                th Name
-                th Email
-                th Fraud Probability
-                th Loan Default Risk
-                th Country
-                th Details
-            tbody
+      .table-wrapper
+        table.records-table
+          thead
+            tr
+              th Name
+              th Email
+              th Fraud Probability
+              th Loan Default Risk
+              th Country
+              th Details
+          tbody#resultsBody
+            if results && results.length > 0
               each result in results
                 tr
                   td= result.name
@@ -48,8 +51,9 @@ block content
                   td= result.country
                   td
                     button.btn.details-btn(data-id=result.id) Show Details
-      else
-        p.records-empty No results to display yet.
+            else
+              tr
+                td(colspan="6").records-empty No results to display yet.
 
     footer.submit-footer
       p.footer-text © 2025 Fraud Chain. All rights reserved.
@@ -147,25 +151,35 @@ block content
     }
 
     async function analyzeData(data) {
-      users = data.map(user => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        country: user.country,
-        records: user.records || []
-      }));
-      const results = [];
-      for (const user of users) {
-        const fraudProbability = await predictFraud(user);
-        const defaultRisk = await predictDefault(user);
-        results.push({ ...user, fraudProbability, defaultRisk });
+      try {
+        users = data.map(user => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          country: user.country,
+          records: user.records || []
+        }));
+        const results = [];
+        for (const user of users) {
+          const fraudProbability = await predictFraud(user);
+          const defaultRisk = await predictDefault(user);
+          results.push({ ...user, fraudProbability, defaultRisk });
+        }
+        renderResults(results);
+      } catch (err) {
+        console.error('Analysis error:', err);
+        document.getElementById('alerts').innerHTML = 'Error analyzing data. Please try again.';
+        document.getElementById('alerts').style.display = 'block';
       }
-      renderResults(results);
     }
 
     function renderResults(results) {
-      const tbody = document.querySelector('.records-table tbody');
+      const tbody = document.getElementById('resultsBody');
       tbody.innerHTML = '';
+      if (results.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="records-empty">No results to display.</td></tr>';
+        return;
+      }
       results.forEach(result => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -178,24 +192,32 @@ block content
         `;
         tbody.appendChild(tr);
       });
-      document.querySelector('.records-empty')?.remove();
     }
 
-    document.getElementById('uploadBtn').addEventListener('click', async () => {
+    window.analyzeFile = async function() {
       const file = document.getElementById('dataFile').files[0];
-      if (!file) return alert('Please upload a file');
+      if (!file) {
+        alert('Please select an Excel file to upload.');
+        return;
+      }
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(sheet);
-        await analyzeData(jsonData);
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(sheet);
+          await analyzeData(jsonData);
+        } catch (err) {
+          console.error('File processing error:', err);
+          document.getElementById('alerts').innerHTML = 'Error processing file. Ensure it’s a valid Excel file.';
+          document.getElementById('alerts').style.display = 'block';
+        }
       };
       reader.readAsArrayBuffer(file);
-    });
+    };
 
-    document.getElementById('searchBtn').addEventListener('click', () => {
+    window.searchData = function() {
       const fraudQuery = document.getElementById('fraudSearch').value.toLowerCase();
       const defaultQuery = document.getElementById('defaultSearch').value.toLowerCase();
       const filtered = users.filter(user =>
@@ -203,13 +225,15 @@ block content
         (defaultQuery && (user.name.toLowerCase().includes(defaultQuery) || user.email.toLowerCase().includes(defaultQuery)))
       );
       analyzeData(filtered);
-    });
+    };
 
     document.addEventListener('click', (e) => {
       if (e.target.classList.contains('details-btn')) {
         const id = e.target.dataset.id;
         const user = users.find(u => u.id == id);
-        alert(`Details for ${user.name}:\n${user.records.map(r => `${r.type}: $${r.amount} (${r.country})`).join('\n')}`);
+        if (user) {
+          alert(`Details for ${user.name}:\n${user.records.map(r => `${r.type}: $${r.amount} (${r.country})`).join('\n')}`);
+        }
       }
     });
 

@@ -6,6 +6,13 @@ exports.getOverview = (req, res) => {
   });
 };
 
+exports.profile = (req, res) => {
+  res.status(200).render('profile', {
+    title: 'Profile',
+    user: req.user
+  });
+};
+
 exports.getLoginForm = (req, res) => {
   res.status(200).render('login', {
     title: 'Login Form'
