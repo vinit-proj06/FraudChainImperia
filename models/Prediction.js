@@ -31,4 +31,6 @@ const predictionSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('Prediction', predictionSchema);
+const Prediction = mongoose.model('User', predictionSchema);
+
+module.exports = Prediction;

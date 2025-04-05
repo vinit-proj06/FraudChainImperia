@@ -40,7 +40,7 @@ const modelTrainingSchema = new mongoose.Schema({
   }
 });
 
-module.exports = {
-  TrainingRecord: mongoose.model('TrainingRecord', trainingRecordSchema),
-  ModelTraining: mongoose.model('ModelTraining', modelTrainingSchema)
-};
+const TrainingRecord = mongoose.model('TrainingRecord', trainingRecordSchema);
+module.exports = TrainingRecord;
+const ModelTraining = mongoose.model('ModelTraining', modelTrainingSchema);
+module.exports = ModelTraining;
