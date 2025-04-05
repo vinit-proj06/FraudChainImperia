@@ -1,0 +1,54 @@
+extends base
+
+block content
+  .contact-container
+    .contact-header
+      h2.heading-secondary Contact Us
+      p.contact-subtitle We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+    
+    .contact-content
+      .contact-form-section
+        form.form.form--contact
+          .form__group
+            label.form__label(for='name') Your Name
+            input#name.form__input(type='text', placeholder='Enter your name', required)
+          
+          .form__group
+            label.form__label(for='email') Email address
+            input#email.form__input(type='email', placeholder='you@example.com', required)
+          
+          .form__group
+            label.form__label(for='subject') Subject
+            input#subject.form__input(type='text', placeholder='What is this regarding?', required)
+          
+          .form__group.ma-bt-md
+            label.form__label(for='message') Message
+            textarea#message.form__input(placeholder='Your message here...', rows='6', required)
+          
+          .form__group
+            button.btn.btn--green Send Message
+      
+      .contact-info-section
+        .contact-info-item
+          i.fa-solid.fa-location-dot.contact-icon
+          .contact-info-text
+            h4.contact-info-title Address
+            p.contact-info-detail 123 Green Street, San Francisco, CA 94103
+        
+        .contact-info-item
+          i.fa-solid.fa-envelope.contact-icon
+          .contact-info-text
+            h4.contact-info-title Email
+            p.contact-info-detail support@fchain.com
+        
+        .contact-info-item
+          i.fa-solid.fa-phone.contact-icon
+          .contact-info-text
+            h4.contact-info-title Phone
+            p.contact-info-detail +1 (555) 123-4567
+        
+        .contact-info-item
+          i.fa-solid.fa-clock.contact-icon
+          .contact-info-text
+            h4.contact-info-title Business Hours
+            p.contact-info-detail Monday - Friday: 9AM - 5PM PST

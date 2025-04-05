@@ -1,0 +1,238 @@
+extends base
+
+block content
+  .audit-container
+    .audit-header
+      h2.heading-secondary Fraud Detection Audit Trail
+      p.audit-subtitle Model monitoring and training dashboard for system administrators
+    
+    .audit-grid
+      // Recent Prediction Logs Section
+      .audit-section.full-width
+        .section-header
+          h3.heading-tertiary 
+            i.fa-solid.fa-history.section-icon
+            | Recent Prediction Logs
+          .section-actions
+            .search-container
+              input#searchPredictions.search-input(type='text', placeholder='Search transactions...')
+              i.fa-solid.fa-search.search-icon
+            select#filterPredictions.filter-select
+              option(value='all') All Predictions
+              option(value='high') High Risk (>70%)
+              option(value='medium') Medium Risk (30-70%)
+              option(value='low') Low Risk (<30%)
+        
+        .table-container
+          table.audit-table
+            thead
+              tr
+                th User Email
+                th Transaction ID
+                th 
+                  | Fraud Probability
+                  i.fa-solid.fa-sort
+                th 
+                  | Default Risk
+                  i.fa-solid.fa-sort
+                th 
+                  | Date/Time
+                  i.fa-solid.fa-sort
+                th Actual Outcome
+                th Feedback
+            tbody
+              each prediction in predictions
+                - var user = prediction.user || {}
+                - var email = user.email || 'N/A'
+                - var timestamp = prediction.timestamp ? new Date(prediction.timestamp).toLocaleString() : 'N/A'
+                tr
+                  td= email
+                  td= prediction.transactionId || 'N/A'
+                  td= prediction.fraudProbability ? prediction.fraudProbability + '%' : 'N/A'
+                  td= prediction.defaultRisk ? prediction.defaultRisk + '%' : 'N/A'
+                  td= timestamp
+                  td= prediction.actualOutcome || 'Pending'
+                  td
+                    if prediction.feedback === true
+                      span.feedback-correct
+                        i.fa-solid.fa-check
+                    else if prediction.feedback === false
+                      span.feedback-incorrect
+                        i.fa-solid.fa-times
+                    else
+                      | No feedback
+          
+          .pagination
+            button.pagination-btn#prevPage(disabled)
+              i.fa-solid.fa-chevron-left
+            span.pagination-info
+              span#currentPage 1
+              |  of 
+              span#totalPages 1
+            button.pagination-btn#nextPage(disabled)
+              i.fa-solid.fa-chevron-right
+
+      // Model Training Summary Section
+      .audit-section
+        .section-header
+          h3.heading-tertiary 
+            i.fa-solid.fa-chart-line.section-icon
+            | Model Training Summary
+        
+        .training-metrics
+          .metric-card
+            h4.metric-title Last Training Date
+            p.metric-value#lastTrainingDate= metrics.lastTrainingDate ? new Date(metrics.lastTrainingDate).toLocaleString() : 'Never'
+          .metric-card
+            h4.metric-title Training Records
+            p.metric-value#trainingRecords= metrics.trainingRecords ? metrics.trainingRecords.toLocaleString() : '0'
+          .metric-card
+            h4.metric-title Model Accuracy
+            p.metric-value#modelAccuracy= metrics.accuracy ? (metrics.accuracy * 100).toFixed(1) + '%' : 'N/A'
+          .metric-card
+            h4.metric-title F1 Score
+            p.metric-value#modelF1Score= metrics.f1Score ? metrics.f1Score.toFixed(3) : 'N/A'
+        
+        .confusion-matrix
+          h4.matrix-title Confusion Matrix
+          .matrix-container
+            .matrix-cell True Positive: 
+              span#truePositive= metrics.truePositive || '0'
+            .matrix-cell False Positive: 
+              span#falsePositive= metrics.falsePositive || '0'
+            .matrix-cell False Negative: 
+              span#falseNegative= metrics.falseNegative || '0'
+            .matrix-cell True Negative: 
+              span#trueNegative= metrics.trueNegative || '0'
+        
+        .training-actions
+          a.btn.download-btn(href='/api/audit/metrics/export')
+            i.fa-solid.fa-download
+            | Download Metrics
+          button.btn.retrain-btn#retrainModel
+            i.fa-solid.fa-sync
+            | Retrain Model
+
+      // System Notifications Section  
+      .audit-section
+        .section-header
+          h3.heading-tertiary 
+            i.fa-solid.fa-bell.section-icon
+            | System Notifications
+        
+        #systemNotifications.notification-list
+          each notification in notifications
+            - var icon = notification.type === 'warning' ? 'exclamation-triangle' : notification.type === 'error' ? 'times-circle' : notification.type === 'info' ? 'info-circle' : notification.type === 'success' ? 'check-circle' : 'info-circle'
+            .notification(class=notification.type)
+              i(class='fa-solid fa-' + icon)
+              .notification-content
+                p.notification-text= notification.message
+                p.notification-time= formatTimeAgo(notification.timestamp)
+          else
+            .notification.info
+              i.fa-solid.fa-info-circle
+              .notification-content
+                p.notification-text No new notifications
+
+      // Visualization Panel Section
+      .audit-section.full-width
+        .section-header
+          h3.heading-tertiary 
+            i.fa-solid.fa-chart-pie.section-icon
+            | Visualization Panel
+          .section-actions
+            select.chart-select#chartType
+              option(value='distribution') Fraud Distribution
+              option(value='trends') Fraud Trends
+              option(value='accuracy') Accuracy Over Time
+        
+        .chart-container
+          canvas#fraud-chart
+
+      // Training Dataset Viewer Section
+      .audit-section.full-width
+        .section-header
+          h3.heading-tertiary 
+            i.fa-solid.fa-database.section-icon
+            | Training Dataset Viewer
+          .section-actions
+            .search-container
+              input.search-input#searchDataset(type='text', placeholder='Search dataset...')
+              i.fa-solid.fa-search.search-icon
+            select.filter-select#filterDataset
+              option(value='all') All Records
+              option(value='fraud') Fraud Records
+              option(value='non-fraud') Non-Fraud Records
+        
+        .table-container
+          table.audit-table
+            thead
+              tr
+                th Record ID
+                th Features
+                th Target Value
+                th 
+                  | Probability
+                  i.fa-solid.fa-sort
+                th Added Date
+                th Actions
+            tbody#datasetBody
+              each record in dataset
+                - var recordId = record._id ? record._id.toString().slice(-6) : 'N/A'
+                - var createdDate = record.createdAt ? new Date(record.createdAt).toLocaleDateString() : 'N/A'
+                tr
+                  td= recordId
+                  td
+                    button.view-features-btn(data-id=record._id) View Features
+                  td= record.isFraud === true ? 'Fraud' : record.isFraud === false ? 'Not Fraud' : 'N/A'
+                  td= record.probability ? record.probability + '%' : 'N/A'
+                  td= createdDate
+                  td
+                    .action-buttons
+                      button.action-btn.edit-btn(data-id=record._id)
+                        i.fa-solid.fa-pencil
+                      button.action-btn.delete-btn(data-id=record._id)
+                        i.fa-solid.fa-trash
+              else
+                tr
+                  td(colspan="6").records-empty No dataset records found
+          
+          .pagination
+            button.pagination-btn#prevDatasetPage(disabled)
+              i.fa-solid.fa-chevron-left
+            span.pagination-info
+              span#currentDatasetPage 1
+              |  of 
+              span#totalDatasetPages 1
+            button.pagination-btn#nextDatasetPage(disabled)
+              i.fa-solid.fa-chevron-right
+
+  script(src="https://cdn.jsdelivr.net/npm/chart.js")
+  script(src="/js/auditTrail.js")
+
+  //- Time formatting helper
+  - function formatTimeAgo(timestamp) {
+  -   if (!timestamp) return 'Unknown';
+  -   var date = new Date(timestamp);
+  -   if (isNaN(date.getTime())) return 'Invalid Date';
+  -   
+  -   var seconds = Math.floor((new Date() - date) / 1000);
+  -   var intervals = {
+  -     year: 31536000,
+  -     month: 2592000,
+  -     week: 604800,
+  -     day: 86400,
+  -     hour: 3600,
+  -     minute: 60
+  -   };
+  -   
+  -   for (var unit in intervals) {
+  -     if (intervals.hasOwnProperty(unit)) {
+  -       var interval = Math.floor(seconds / intervals[unit]);
+  -       if (interval >= 1) {
+  -         return interval + ' ' + unit + (interval === 1 ? '' : 's') + ' ago';
+  -       }
+  -     }
+  -   }
+  -   return 'Just now';
+  - }

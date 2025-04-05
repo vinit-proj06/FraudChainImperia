@@ -13,6 +13,26 @@ exports.profile = (req, res) => {
   });
 };
 
+exports.contact = (req, res) => {
+  res.status(200).render('contact', {
+    title: 'Contact Us'
+  });
+};
+
+exports.getAuditLog = (req, res) => {
+  res.status(200).render('log-audit-trail', {
+    title: 'Audit Log Records',
+    user: req.user
+  });
+};
+
+exports.dashboard = (req, res) => {
+  res.status(200).render('dashboard', {
+    title: 'Dashboard',
+    user: req.user
+  });
+};
+
 exports.getLoginForm = (req, res) => {
   res.status(200).render('login', {
     title: 'Login Form'

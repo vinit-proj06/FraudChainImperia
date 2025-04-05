@@ -1,12 +1,376 @@
+//- extends base
+
+//- block content
+//-   .submit-container
+//-     header.submit-header
+//-       h2.submit-title Fraud & Default Detection Dashboard
+//-       p.submit-description Upload an Excel file to detect high-risk fraudsters and loan defaulters.
+
+//-     form.form.form--analyze
+//-       .form__section.upload-section
+//-         .form__group
+//-           label.form__label(for="dataFile") Upload Excel File
+//-           input#dataFile.form__input(type="file" accept=".xlsx, .xls" required)
+//-         .form__group
+//-           button.btn.upload-btn(type="button" onclick="analyzeFile()") Upload and Analyze
+
+//-       .form__section.search-section
+//-         .form__group
+//-           label.form__label(for="fraudSearch") Search Fraudsters
+//-           input#fraudSearch.form__input(type="text" placeholder="e.g., Name or Email")
+//-         .form__group
+//-           label.form__label(for="defaultSearch") Search Loan Defaulters
+//-           input#defaultSearch.form__input(type="text" placeholder="e.g., Name or Email")
+//-         .form__group
+//-           button.btn.search-btn(type="button" onclick="searchData()") Search
+
+//-     section.records-list
+//-       h3.records-title High-Risk Users
+//-       #trainingStatus Training models...
+//-       #alerts
+//-       .table-wrapper
+//-         table.records-table
+//-           thead
+//-             tr
+//-               th Name
+//-               th Email
+//-               th Fraud Probability
+//-               th Default Risk
+//-               th Country
+//-               th Details
+//-           tbody#resultsBody
+//-             tr
+//-               td(colspan="6").records-empty No high-risk users detected yet.
+
+//-     footer.submit-footer
+//-       p.footer-text © 2025 Fraud Chain. All rights reserved.
+//-       a.footer-link(href="/contact") Contact Support
+
+//-   style.
+//-     .submit-container {
+//-       background-color: white;
+//-       padding: 20px;
+//-       border-radius: 8px;
+//-       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+//-     }
+//-     .details {
+//-       font-size: 0.9em;
+//-       color: #555;
+//-       padding: 10px;
+//-     }
+//-     .details p {
+//-       margin: 5px 0;
+//-     }
+//-     .fraud-reason { color: #e74c3c; }
+//-     .default-reason { color: #d35400; }
+
+//-   script(src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js")
+//-   script(src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js")
+//-   script.
+//-     let users = [];
+//-     let highRiskUsers = [];
+
+//-     // Using your provided training data
+//-     const fraudTrainingDataRaw = [
+//-       [1, 1, 5000, 2000, 1, 10],     // Safe
+//-       [2, 1, 10000, 3000, 1, 5],     // Safe
+//-       [1, 2, 8000, 1500, 1, 0],      // Safe
+//-       [2, 2, 20000, 5000, 2, 30],    // Borderline
+//-       [3, 2, 50000, 10000, 2, 60],   // Risky
+//-       [4, 3, 80000, 15000, 3, 120],  // High risk
+//-       [5, 1, 120000, 5000, 2, 200],  // High risk
+//-       [6, 2, 250000, 20000, 3, 300], // Very high risk
+//-     ];
+//-     const fraudLabelsRaw = [0, 0, 0, 0, 1, 1, 1, 1];
+
+//-     const defaultTrainingDataRaw = [
+//-       [1, 10000, 1, 5],      // Safe
+//-       [2, 25000, 1, 10],     // Safe
+//-       [1, 15000, 1, 0],      // Safe
+//-       [2, 30000, 2, 30],     // Borderline
+//-       [3, 50000, 2, 60],     // Risky
+//-       [4, 80000, 2, 120],    // High risk
+//-       [5, 100000, 3, 200],   // Very high risk
+//-       [6, 150000, 3, 300],   // Defaulting
+//-     ];
+//-     const defaultLabelsRaw = [0, 0, 0, 0, 1, 1, 1, 1];
+
+//-     function normalize(data, trainingData) {
+//-       const mins = tf.min(trainingData, 0);
+//-       const maxs = tf.max(trainingData, 0);
+//-       const range = maxs.sub(mins).add(1e-6);
+//-       const normalized = data.sub(mins).div(range);
+//-       console.log('Min values:', mins.arraySync());
+//-       console.log('Max values:', maxs.arraySync());
+//-       console.log('Normalized features:', normalized.arraySync());
+//-       return normalized;
+//-     }
+
+//-     const fraudModel = tf.sequential();
+//-     fraudModel.add(tf.layers.dense({ units: 8, inputShape: [6], activation: 'relu' }));
+//-     fraudModel.add(tf.layers.dense({ units: 4, activation: 'relu' }));
+//-     fraudModel.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
+//-     fraudModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+
+//-     const defaultModel = tf.sequential();
+//-     defaultModel.add(tf.layers.dense({ units: 8, inputShape: [4], activation: 'relu' }));
+//-     defaultModel.add(tf.layers.dense({ units: 4, activation: 'relu' }));
+//-     defaultModel.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
+//-     defaultModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+
+//-     async function trainModels() {
+//-       const fraudData = normalize(tf.tensor2d(fraudTrainingDataRaw), tf.tensor2d(fraudTrainingDataRaw));
+//-       const fraudLabels = tf.tensor2d(fraudLabelsRaw, [fraudLabelsRaw.length, 1]);
+//-       const defaultData = normalize(tf.tensor2d(defaultTrainingDataRaw), tf.tensor2d(defaultTrainingDataRaw));
+//-       const defaultLabels = tf.tensor2d(defaultLabelsRaw, [defaultLabelsRaw.length, 1]);
+
+//-       await fraudModel.fit(fraudData, fraudLabels, {
+//-         epochs: 100,
+//-         shuffle: true,
+//-         validationSplit: 0.2,
+//-         callbacks: {
+//-           onEpochEnd: (epoch, logs) => {
+//-             if (epoch % 25 === 0) console.log(`Fraud Epoch ${epoch}: Loss = ${logs.loss}, Acc = ${logs.acc}`);
+//-           }
+//-         }
+//-       });
+
+//-       await defaultModel.fit(defaultData, defaultLabels, {
+//-         epochs: 100,
+//-         shuffle: true,
+//-         validationSplit: 0.2,
+//-         callbacks: {
+//-           onEpochEnd: (epoch, logs) => {
+//-             if (epoch % 25 === 0) console.log(`Default Epoch ${epoch}: Loss = ${logs.loss}, Acc = ${logs.acc}`);
+//-           }
+//-         }
+//-       });
+
+//-       console.log('Models trained');
+//-       document.getElementById('trainingStatus').innerText = 'Models trained!';
+//-     }
+
+//-     function extractFraudFeatures(user) {
+//-       const loans = user.records.filter(r => r.type === 'loan') || [];
+//-       const transactions = user.records.filter(r => r.type === 'transaction') || [];
+//-       const totalLoanAmount = loans.reduce((sum, r) => sum + r.amount, 0);
+//-       const totalTransactionAmount = transactions.reduce((sum, r) => sum + r.amount, 0);
+//-       const uniqueCountries = new Set(user.records.map(r => r.country)).size;
+//-       const totalDaysOverdue = loans.reduce((sum, r) => sum + (r.daysOverdue || 0), 0);
+//-       const features = [loans.length, transactions.length, totalLoanAmount, totalTransactionAmount, uniqueCountries, totalDaysOverdue];
+//-       console.log(`Fraud features for ${user.name}:`, features);
+//-       return features;
+//-     }
+
+//-     function extractDefaultFeatures(user) {
+//-       const loans = user.records.filter(r => r.type === 'loan') || [];
+//-       const totalLoanAmount = loans.reduce((sum, r) => sum + r.amount, 0);
+//-       const uniqueCountries = new Set(user.records.map(r => r.country)).size;
+//-       const totalDaysOverdue = loans.reduce((sum, r) => sum + (r.daysOverdue || 0), 0);
+//-       const features = [loans.length, totalLoanAmount, uniqueCountries, totalDaysOverdue];
+//-       console.log(`Default features for ${user.name}:`, features);
+//-       return features;
+//-     }
+
+//-     async function predictFraud(user) {
+//-       const features = normalize(tf.tensor2d([extractFraudFeatures(user)]), tf.tensor2d(fraudTrainingDataRaw));
+//-       const prediction = fraudModel.predict(features);
+//-       const probability = (await prediction.data())[0] * 100;
+//-       features.dispose();
+//-       prediction.dispose();
+//-       console.log(`Raw fraud probability for ${user.name}: ${probability}%`);
+//-       return Math.min(Math.max(probability, 0), 100); // Clamp between 0-100
+//-     }
+
+//-     async function predictDefault(user) {
+//-       const features = normalize(tf.tensor2d([extractDefaultFeatures(user)]), tf.tensor2d(defaultTrainingDataRaw));
+//-       const prediction = defaultModel.predict(features);
+//-       const probability = (await prediction.data())[0] * 100;
+//-       features.dispose();
+//-       prediction.dispose();
+//-       console.log(`Raw default probability for ${user.name}: ${probability}%`);
+//-       return Math.min(Math.max(probability, 0), 100); // Clamp between 0-100
+//-     }
+
+//-     function getRiskReasons(user, fraudProbability, defaultRisk) {
+//-       const loans = user.records.filter(r => r.type === 'loan') || [];
+//-       const transactions = user.records.filter(r => r.type === 'transaction') || [];
+//-       const totalLoanAmount = loans.reduce((sum, r) => sum + r.amount, 0);
+//-       const totalDaysOverdue = loans.reduce((sum, r) => sum + (r.daysOverdue || 0), 0);
+//-       const uniqueCountries = new Set(user.records.map(r => r.country)).size;
+
+//-       let fraudReasons = [];
+//-       let defaultReasons = [];
+
+//-       if (fraudProbability > 80) {
+//-         if (totalLoanAmount > 50000) fraudReasons.push(`High total loan amount: $${totalLoanAmount}`);
+//-         if (uniqueCountries > 1) fraudReasons.push(`Activity in ${uniqueCountries} countries`);
+//-         if (totalDaysOverdue > 60) fraudReasons.push(`Significant overdue loans: ${totalDaysOverdue} days`);
+//-         if (loans.length > 2) fraudReasons.push(`Multiple loans: ${loans.length}`);
+//-       }
+
+//-       if (defaultRisk > 80) {
+//-         if (totalDaysOverdue > 60) defaultReasons.push(`Overdue loans totaling ${totalDaysOverdue} days`);
+//-         if (totalLoanAmount > 50000) defaultReasons.push(`Large outstanding loans: $${totalLoanAmount}`);
+//-         if (loans.length > 2) defaultReasons.push(`Multiple unpaid loans: ${loans.length}`);
+//-         if (uniqueCountries > 1) defaultReasons.push(`Loans across ${uniqueCountries} countries`);
+//-       }
+
+//-       return { fraudReasons, defaultReasons };
+//-     }
+
+//-     async function analyzeData(data) {
+//-       try {
+//-         console.log('Raw data from Excel:', data);
+//-         users = data.map(row => {
+//-           const records = [];
+//-           if (row['records/0/type']) {
+//-             records.push({
+//-               type: row['records/0/type'],
+//-               amount: row['records/0/amount'] || 0,
+//-               country: row['records/0/country'],
+//-               daysOverdue: row['records/0/daysOverdue'] || 0
+//-             });
+//-           }
+//-           if (row['records/1/type']) {
+//-             records.push({
+//-               type: row['records/1/type'],
+//-               amount: row['records/1/amount'] || 0,
+//-               country: row['records/1/country'],
+//-               daysOverdue: row['records/1/daysOverdue'] || 0
+//-             });
+//-           }
+//-           if (row['records/2/type']) {
+//-             records.push({
+//-               type: row['records/2/type'],
+//-               amount: row['records/2/amount'] || 0,
+//-               country: row['records/2/country'],
+//-               daysOverdue: row['records/2/daysOverdue'] || 0
+//-             });
+//-           }
+//-           return {
+//-             id: row.id,
+//-             name: row.name,
+//-             email: row.email,
+//-             country: row.country,
+//-             records
+//-           };
+//-         });
+//-         console.log('Processed users:', users);
+
+//-         const results = [];
+//-         console.log('Analyzing users:');
+//-         for (const user of users) {
+//-           const fraudProbability = await predictFraud(user);
+//-           const defaultRisk = await predictDefault(user);
+//-           console.log(`${user.name} - Fraud: ${fraudProbability}%, Default: ${defaultRisk}%`);
+//-           if (fraudProbability > 80 || defaultRisk > 80) {
+//-             console.log(`  -> ${user.name} flagged as high-risk`);
+//-             results.push({ ...user, fraudProbability, defaultRisk });
+//-           } else {
+//-             console.log(`  -> ${user.name} NOT flagged (below 80%)`);
+//-           }
+//-         }
+//-         console.log('High-risk users before render:', results);
+//-         highRiskUsers = results; // Overwrite, don’t append
+//-         localStorage.setItem('highRiskUsers', JSON.stringify(highRiskUsers));
+//-         renderResults(results);
+//-       } catch (err) {
+//-         console.error('Analysis error:', err);
+//-         document.getElementById('alerts').innerHTML = 'Error analyzing data: ' + err.message;
+//-         document.getElementById('alerts').style.display = 'block';
+//-       }
+//-     }
+
+//-     function renderResults(results) {
+//-       const tbody = document.getElementById('resultsBody');
+//-       tbody.innerHTML = '';
+//-       const filteredResults = results.filter(r => r.fraudProbability > 80 || r.defaultRisk > 80); // Double-check filter
+//-       console.log('Filtered results for rendering:', filteredResults);
+//-       if (filteredResults.length === 0) {
+//-         tbody.innerHTML = '<tr><td colspan="6" class="records-empty">No high-risk users detected.</td></tr>';
+//-         console.log('No high-risk users to render');
+//-         return;
+//-       }
+//-       filteredResults.forEach(result => {
+//-         const tr = document.createElement('tr');
+//-         tr.innerHTML = `
+//-           <td>${result.name}</td>
+//-           <td>${result.email}</td>
+//-           <td>${result.fraudProbability}%</td>
+//-           <td>${result.defaultRisk}%</td>
+//-           <td>${result.country}</td>
+//-           <td><button class="btn details-btn" onclick="toggleDetails(${result.id})">Show Details</button></td>
+//-         `;
+//-         const { fraudReasons, defaultReasons } = getRiskReasons(result, result.fraudProbability, result.defaultRisk);
+//-         const detailsDiv = document.createElement('tr');
+//-         detailsDiv.id = `details-${result.id}`;
+//-         detailsDiv.style.display = 'none';
+//-         detailsDiv.innerHTML = `
+//-           <td colspan="6" class="details">
+//-             <p><strong>Records:</strong></p>
+//-             ${result.records.map(r => `<p>${r.type.toUpperCase()}: $${r.amount} (${r.country})${r.daysOverdue ? ' - Overdue: ' + r.daysOverdue + ' days' : ''}</p>`).join('')}
+//-             ${fraudReasons.length ? '<p><strong>Fraud Risk Reasons:</strong></p>' + fraudReasons.map(r => `<p class="fraud-reason">${r}</p>`).join('') : ''}
+//-             ${defaultReasons.length ? '<p><strong>Default Risk Reasons:</strong></p>' + defaultReasons.map(r => `<p class="default-reason">${r}</p>`).join('') : ''}
+//-           </td>
+//-         `;
+//-         tbody.appendChild(tr);
+//-         tbody.appendChild(detailsDiv);
+//-       });
+//-       console.log('Rendered high-risk users:', filteredResults);
+//-     }
+
+//-     window.analyzeFile = async function() {
+//-       const file = document.getElementById('dataFile').files[0];
+//-       if (!file) {
+//-         alert('Please select an Excel file to upload.');
+//-         return;
+//-       }
+//-       localStorage.clear(); // Clear cached data
+//-       const reader = new FileReader();
+//-       reader.onload = async (e) => {
+//-         try {
+//-           const data = new Uint8Array(e.target.result);
+//-           const workbook = XLSX.read(data, { type: 'array' });
+//-           const sheet = workbook.Sheets[workbook.SheetNames[0]];
+//-           const jsonData = XLSX.utils.sheet_to_json(sheet);
+//-           await analyzeData(jsonData);
+//-         } catch (err) {
+//-           console.error('File processing error:', err);
+//-           document.getElementById('alerts').innerHTML = 'Error processing file: ' + err.message;
+//-           document.getElementById('alerts').style.display = 'block';
+//-         }
+//-       };
+//-       reader.readAsArrayBuffer(file);
+//-     };
+
+//-     window.searchData = function() {
+//-       const fraudQuery = document.getElementById('fraudSearch').value.toLowerCase();
+//-       const defaultQuery = document.getElementById('defaultSearch').value.toLowerCase();
+//-       const filtered = highRiskUsers.filter(user =>
+//-         (fraudQuery && (user.name.toLowerCase().includes(fraudQuery) || user.email.toLowerCase().includes(fraudQuery))) ||
+//-         (defaultQuery && (user.name.toLowerCase().includes(defaultQuery) || user.email.toLowerCase().includes(defaultQuery)))
+//-       );
+//-       renderResults(filtered);
+//-     };
+
+//-     window.toggleDetails = function(userId) {
+//-       const detailsDiv = document.getElementById(`details-${userId}`);
+//-       detailsDiv.style.display = detailsDiv.style.display === 'none' ? 'block' : 'none';
+//-       console.log(`Toggled details for user ${userId}`);
+//-     };
+
+//-     trainModels();
+//-     renderResults(highRiskUsers);
+
 extends base
 
 block content
   .submit-container
     header.submit-header
-      h2.submit-title Analyze User Data
-      p.submit-description Upload an Excel file or search to detect fraudsters and loan defaulters.
+      h2.submit-title Fraud & Default Detection Dashboard
+      p.submit-description Upload an Excel file to detect high-risk fraudsters and loan defaulters.
 
-    // Upload and Search Section
     form.form.form--analyze
       .form__section.upload-section
         .form__group
@@ -25,9 +389,8 @@ block content
         .form__group
           button.btn.search-btn(type="button" onclick="searchData()") Search
 
-    // Results Section
     section.records-list
-      h3.records-title Analysis Results
+      h3.records-title High-Risk Users
       #trainingStatus Training models...
       #alerts
       .table-wrapper
@@ -37,160 +400,365 @@ block content
               th Name
               th Email
               th Fraud Probability
-              th Loan Default Risk
+              th Default Risk
               th Country
               th Details
           tbody#resultsBody
-            if results && results.length > 0
-              each result in results
-                tr
-                  td= result.name
-                  td= result.email
-                  td= `${result.fraudProbability}%`
-                  td= `${result.defaultRisk}%`
-                  td= result.country
-                  td
-                    button.btn.details-btn(data-id=result.id) Show Details
-            else
-              tr
-                td(colspan="6").records-empty No results to display yet.
+            tr
+              td(colspan="6").records-empty No high-risk users detected yet.
 
     footer.submit-footer
       p.footer-text © 2025 Fraud Chain. All rights reserved.
       a.footer-link(href="/contact") Contact Support
 
+  style.
+    .submit-container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .details {
+      font-size: 0.9em;
+      color: #555;
+      padding: 10px;
+    }
+    .details p {
+      margin: 5px 0;
+    }
+    .fraud-reason { color: #e74c3c; }
+    .default-reason { color: #d35400; }
+    .high-risk { background-color: #ffebee; }
+    .medium-risk { background-color: #fff8e1; }
+
   script(src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js")
   script(src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js")
   script.
-    let users = !{JSON.stringify(results || [])};
+    let users = [];
+    let highRiskUsers = [];
 
+    // Enhanced training data with more varied examples
     const fraudTrainingDataRaw = [
-      [1, 3, 3000, 900, 1],  // Safe
-      [0, 4, 0, 1200, 1],    // Safe
-      [2, 1, 20000, 300, 2], // Fraud
-      [3, 0, 25000, 0, 1],   // Fraud
-      [1, 4, 2000, 1000, 1], // Safe
-      [4, 1, 35000, 400, 3]  // Fraud
+      // Safe users (0-30% risk)
+      [1, 1, 5000, 2000, 1, 10],     // 0%
+      [1, 2, 8000, 1500, 1, 0],       // 0%
+      [2, 1, 10000, 3000, 1, 5],      // 10%
+      [1, 3, 15000, 5000, 1, 15],     // 15%
+      
+      // Medium risk users (30-70% risk)
+      [2, 2, 20000, 5000, 2, 30],    // 35%
+      [3, 2, 35000, 8000, 2, 45],    // 45%
+      [3, 3, 45000, 10000, 2, 60],   // 55%
+      [4, 2, 60000, 12000, 2, 75],   // 65%
+      
+      // High risk users (70-100% risk)
+      [4, 3, 80000, 15000, 3, 120],  // 75%
+      [5, 1, 120000, 5000, 2, 200],  // 85%
+      [5, 4, 150000, 25000, 3, 180], // 90%
+      [6, 2, 250000, 20000, 3, 300], // 95%
     ];
-    const fraudLabelsRaw = [0, 0, 1, 1, 0, 1];
+    const fraudLabelsRaw = [0, 0, 0.1, 0.15, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.9, 0.95];
 
     const defaultTrainingDataRaw = [
-      [2, 5000, 1, 30],   // Low risk
-      [1, 2000, 0, 15],   // Low risk
-      [5, 15000, 2, 90],  // High risk
-      [3, 10000, 1, 60],  // High risk
-      [1, 3000, 0, 20],   // Low risk
-      [4, 20000, 3, 120]  // High risk
+      // Safe users (0-30% risk)
+      [1, 10000, 1, 5],      // 0%
+      [1, 15000, 1, 0],      // 0%
+      [2, 25000, 1, 10],     // 10%
+      [1, 20000, 1, 8],      // 15%
+      
+      // Medium risk users (30-70% risk)
+      [2, 30000, 2, 30],     // 35%
+      [3, 40000, 2, 45],     // 45%
+      [3, 50000, 2, 60],     // 55%
+      [4, 70000, 2, 90],     // 65%
+      
+      // High risk users (70-100% risk)
+      [4, 80000, 2, 120],    // 75%
+      [5, 100000, 3, 200],   // 85%
+      [5, 120000, 3, 240],   // 90%
+      [6, 150000, 3, 300],   // 95%
     ];
-    const defaultLabelsRaw = [0, 0, 1, 1, 0, 1];
+    const defaultLabelsRaw = [0, 0, 0.1, 0.15, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.9, 0.95];
 
-    function normalize(data) {
-      const mins = tf.min(data, 0);
-      const maxs = tf.max(data, 0);
-      return data.sub(mins).div(maxs.sub(mins).add(1e-6));
+    function normalize(data, trainingData) {
+      const mins = tf.min(trainingData, 0);
+      const maxs = tf.max(trainingData, 0);
+      const range = maxs.sub(mins).add(1e-6);
+      const normalized = data.sub(mins).div(range);
+      return normalized;
     }
 
+    // More complex model architecture
     const fraudModel = tf.sequential();
-    fraudModel.add(tf.layers.dense({ units: 8, inputShape: [5], activation: 'relu' }));
-    fraudModel.add(tf.layers.dense({ units: 4, activation: 'relu' }));
+    fraudModel.add(tf.layers.dense({ units: 16, inputShape: [6], activation: 'relu' }));
+    fraudModel.add(tf.layers.dropout({ rate: 0.2 }));
+    fraudModel.add(tf.layers.dense({ units: 8, activation: 'relu' }));
     fraudModel.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
-    fraudModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+    fraudModel.compile({ 
+      optimizer: tf.train.adam(0.001),
+      loss: 'binaryCrossentropy',
+      metrics: ['accuracy']
+    });
 
     const defaultModel = tf.sequential();
-    defaultModel.add(tf.layers.dense({ units: 8, inputShape: [4], activation: 'relu' }));
-    defaultModel.add(tf.layers.dense({ units: 4, activation: 'relu' }));
+    defaultModel.add(tf.layers.dense({ units: 16, inputShape: [4], activation: 'relu' }));
+    defaultModel.add(tf.layers.dropout({ rate: 0.2 }));
+    defaultModel.add(tf.layers.dense({ units: 8, activation: 'relu' }));
     defaultModel.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
-    defaultModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy', metrics: ['accuracy'] });
+    defaultModel.compile({ 
+      optimizer: tf.train.adam(0.001),
+      loss: 'binaryCrossentropy',
+      metrics: ['accuracy']
+    });
 
     async function trainModels() {
-      const fraudData = normalize(tf.tensor2d(fraudTrainingDataRaw));
-      const fraudLabels = tf.tensor2d(fraudLabelsRaw, [fraudLabelsRaw.length, 1]);
-      const defaultData = normalize(tf.tensor2d(defaultTrainingDataRaw));
-      const defaultLabels = tf.tensor2d(defaultLabelsRaw, [defaultLabelsRaw.length, 1]);
+      try {
+        const fraudData = normalize(tf.tensor2d(fraudTrainingDataRaw), tf.tensor2d(fraudTrainingDataRaw));
+        const fraudLabels = tf.tensor2d(fraudLabelsRaw, [fraudLabelsRaw.length, 1]);
+        const defaultData = normalize(tf.tensor2d(defaultTrainingDataRaw), tf.tensor2d(defaultTrainingDataRaw));
+        const defaultLabels = tf.tensor2d(defaultLabelsRaw, [defaultLabelsRaw.length, 1]);
 
-      await Promise.all([
-        fraudModel.fit(fraudData, fraudLabels, { epochs: 100, shuffle: true }),
-        defaultModel.fit(defaultData, defaultLabels, { epochs: 100, shuffle: true })
-      ]);
-      document.getElementById('trainingStatus').innerText = 'Models trained!';
+        await fraudModel.fit(fraudData, fraudLabels, {
+          epochs: 200,
+          batchSize: 4,
+          shuffle: true,
+          validationSplit: 0.2,
+          callbacks: {
+            onEpochEnd: (epoch, logs) => {
+              if (epoch % 50 === 0) console.log(`Fraud Epoch ${epoch}: Loss = ${logs.loss.toFixed(4)}, Acc = ${logs.acc.toFixed(4)}`);
+            }
+          }
+        });
+
+        await defaultModel.fit(defaultData, defaultLabels, {
+          epochs: 200,
+          batchSize: 4,
+          shuffle: true,
+          validationSplit: 0.2,
+          callbacks: {
+            onEpochEnd: (epoch, logs) => {
+              if (epoch % 50 === 0) console.log(`Default Epoch ${epoch}: Loss = ${logs.loss.toFixed(4)}, Acc = ${logs.acc.toFixed(4)}`);
+            }
+          }
+        });
+
+        console.log('Models trained successfully');
+        document.getElementById('trainingStatus').innerText = 'Models trained and ready!';
+      } catch (err) {
+        console.error('Training error:', err);
+        document.getElementById('trainingStatus').innerText = 'Error training models';
+      }
     }
 
     function extractFraudFeatures(user) {
       const loans = user.records.filter(r => r.type === 'loan') || [];
       const transactions = user.records.filter(r => r.type === 'transaction') || [];
-      const totalLoanAmount = loans.reduce((sum, r) => sum + r.amount, 0);
-      const totalTransactionAmount = transactions.reduce((sum, r) => sum + r.amount, 0);
+      const totalLoanAmount = loans.reduce((sum, r) => sum + (r.amount || 0), 0);
+      const totalTransactionAmount = transactions.reduce((sum, r) => sum + (r.amount || 0), 0);
       const uniqueCountries = new Set(user.records.map(r => r.country)).size;
-      return [loans.length, transactions.length, totalLoanAmount, totalTransactionAmount, uniqueCountries];
+      const totalDaysOverdue = loans.reduce((sum, r) => sum + (r.daysOverdue || 0), 0);
+      
+      return [
+        loans.length,
+        transactions.length,
+        totalLoanAmount,
+        totalTransactionAmount,
+        uniqueCountries,
+        totalDaysOverdue
+      ];
     }
 
     function extractDefaultFeatures(user) {
       const loans = user.records.filter(r => r.type === 'loan') || [];
-      const totalLoanAmount = loans.reduce((sum, r) => sum + r.amount, 0);
+      const totalLoanAmount = loans.reduce((sum, r) => sum + (r.amount || 0), 0);
       const uniqueCountries = new Set(user.records.map(r => r.country)).size;
-      const daysOverdue = loans.reduce((sum, r) => sum + (r.daysOverdue || 0), 0);
-      return [loans.length, totalLoanAmount, uniqueCountries, daysOverdue];
+      const totalDaysOverdue = loans.reduce((sum, r) => sum + (r.daysOverdue || 0), 0);
+      
+      return [
+        loans.length,
+        totalLoanAmount,
+        uniqueCountries,
+        totalDaysOverdue
+      ];
     }
 
     async function predictFraud(user) {
-      const features = normalize(tf.tensor2d([extractFraudFeatures(user)]));
-      const prediction = fraudModel.predict(features);
-      const probability = (await prediction.data())[0] * 100;
-      features.dispose();
-      prediction.dispose();
-      return Math.round(probability);
+      try {
+        const features = tf.tensor2d([extractFraudFeatures(user)]);
+        const normalized = normalize(features, tf.tensor2d(fraudTrainingDataRaw));
+        const prediction = fraudModel.predict(normalized);
+        const probability = (await prediction.data())[0] * 100;
+        
+        features.dispose();
+        normalized.dispose();
+        prediction.dispose();
+        
+        return Math.min(Math.max(probability, 0), 100);
+      } catch (err) {
+        console.error('Fraud prediction error:', err);
+        return 0;
+      }
     }
 
     async function predictDefault(user) {
-      const features = normalize(tf.tensor2d([extractDefaultFeatures(user)]));
-      const prediction = defaultModel.predict(features);
-      const probability = (await prediction.data())[0] * 100;
-      features.dispose();
-      prediction.dispose();
-      return Math.round(probability);
+      try {
+        const features = tf.tensor2d([extractDefaultFeatures(user)]);
+        const normalized = normalize(features, tf.tensor2d(defaultTrainingDataRaw));
+        const prediction = defaultModel.predict(normalized);
+        const probability = (await prediction.data())[0] * 100;
+        
+        features.dispose();
+        normalized.dispose();
+        prediction.dispose();
+        
+        return Math.min(Math.max(probability, 0), 100);
+      } catch (err) {
+        console.error('Default prediction error:', err);
+        return 0;
+      }
+    }
+
+    function getRiskReasons(user, fraudProbability, defaultRisk) {
+      const loans = user.records.filter(r => r.type === 'loan') || [];
+      const transactions = user.records.filter(r => r.type === 'transaction') || [];
+      const totalLoanAmount = loans.reduce((sum, r) => sum + (r.amount || 0), 0);
+      const totalDaysOverdue = loans.reduce((sum, r) => sum + (r.daysOverdue || 0), 0);
+      const uniqueCountries = new Set(user.records.map(r => r.country)).size;
+
+      let fraudReasons = [];
+      let defaultReasons = [];
+
+      if (fraudProbability > 70) {
+        if (totalLoanAmount > 50000) fraudReasons.push(`High total loan amount: $${totalLoanAmount}`);
+        if (uniqueCountries > 1) fraudReasons.push(`Activity in ${uniqueCountries} countries`);
+        if (totalDaysOverdue > 60) fraudReasons.push(`Significant overdue loans: ${totalDaysOverdue} days`);
+        if (loans.length > 2) fraudReasons.push(`Multiple loans: ${loans.length}`);
+        if (transactions.length > 5) fraudReasons.push(`Suspicious transaction volume: ${transactions.length}`);
+      }
+
+      if (defaultRisk > 70) {
+        if (totalDaysOverdue > 60) defaultReasons.push(`Overdue loans totaling ${totalDaysOverdue} days`);
+        if (totalLoanAmount > 50000) defaultReasons.push(`Large outstanding loans: $${totalLoanAmount}`);
+        if (loans.length > 2) defaultReasons.push(`Multiple unpaid loans: ${loans.length}`);
+        if (uniqueCountries > 1) defaultReasons.push(`Loans across ${uniqueCountries} countries`);
+      }
+
+      return { fraudReasons, defaultReasons };
     }
 
     async function analyzeData(data) {
       try {
-        users = data.map(user => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          country: user.country,
-          records: user.records || []
-        }));
+        document.getElementById('alerts').style.display = 'none';
+        document.getElementById('trainingStatus').innerText = 'Analyzing data...';
+        
+        users = data.map(row => {
+          const records = [];
+          // Process up to 3 records per user
+          for (let i = 0; i < 3; i++) {
+            if (row[`records/${i}/type`]) {
+              records.push({
+                type: row[`records/${i}/type`],
+                amount: parseFloat(row[`records/${i}/amount`]) || 0,
+                country: row[`records/${i}/country`] || 'Unknown',
+                daysOverdue: parseInt(row[`records/${i}/daysOverdue`]) || 0
+              });
+            }
+          }
+          
+          return {
+            id: row.id || Math.random().toString(36).substr(2, 9),
+            name: row.name || 'Unknown',
+            email: row.email || 'unknown@example.com',
+            country: row.country || 'Unknown',
+            records
+          };
+        });
+
         const results = [];
         for (const user of users) {
-          const fraudProbability = await predictFraud(user);
-          const defaultRisk = await predictDefault(user);
-          results.push({ ...user, fraudProbability, defaultRisk });
+          const [fraudProbability, defaultRisk] = await Promise.all([
+            predictFraud(user),
+            predictDefault(user)
+          ]);
+          
+          // Only include users with significant risk
+          if (fraudProbability >= 70 || defaultRisk >= 70) {
+            results.push({ 
+              ...user, 
+              fraudProbability: parseFloat(fraudProbability.toFixed(1)),
+              defaultRisk: parseFloat(defaultRisk.toFixed(1))
+            });
+          }
         }
+
+        // Sort by highest risk first
+        results.sort((a, b) => {
+          const aMax = Math.max(a.fraudProbability, a.defaultRisk);
+          const bMax = Math.max(b.fraudProbability, b.defaultRisk);
+          return bMax - aMax;
+        });
+
+        highRiskUsers = results;
+        localStorage.setItem('highRiskUsers', JSON.stringify(highRiskUsers));
         renderResults(results);
+        document.getElementById('trainingStatus').innerText = 'Analysis complete';
       } catch (err) {
         console.error('Analysis error:', err);
-        document.getElementById('alerts').innerHTML = 'Error analyzing data. Please try again.';
+        document.getElementById('alerts').innerHTML = 'Error analyzing data: ' + err.message;
         document.getElementById('alerts').style.display = 'block';
+        document.getElementById('trainingStatus').innerText = 'Analysis failed';
       }
     }
 
     function renderResults(results) {
       const tbody = document.getElementById('resultsBody');
       tbody.innerHTML = '';
+      
       if (results.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="records-empty">No results to display.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="records-empty">No high-risk users detected.</td></tr>';
         return;
       }
+      
       results.forEach(result => {
+        const isHighRisk = result.fraudProbability >= 80 || result.defaultRisk >= 80;
+        const rowClass = isHighRisk ? 'high-risk' : 'medium-risk';
+        
         const tr = document.createElement('tr');
+        tr.className = rowClass;
         tr.innerHTML = `
           <td>${result.name}</td>
           <td>${result.email}</td>
           <td>${result.fraudProbability}%</td>
           <td>${result.defaultRisk}%</td>
           <td>${result.country}</td>
-          <td><button class="btn details-btn" data-id="${result.id}">Show Details</button></td>
+          <td><button class="btn details-btn" onclick="toggleDetails('${result.id}')">Show Details</button></td>
         `;
+        
+        const { fraudReasons, defaultReasons } = getRiskReasons(result, result.fraudProbability, result.defaultRisk);
+        const detailsDiv = document.createElement('tr');
+        detailsDiv.id = `details-${result.id}`;
+        detailsDiv.className = rowClass;
+        detailsDiv.style.display = 'none';
+        detailsDiv.innerHTML = `
+          <td colspan="6" class="details">
+            <p><strong>Records:</strong></p>
+            ${result.records.map(r => `
+              <p>${r.type.toUpperCase()}: $${r.amount} (${r.country}) 
+              ${r.daysOverdue ? ' - Overdue: ' + r.daysOverdue + ' days' : ''}</p>
+            `).join('')}
+            ${fraudReasons.length ? `
+              <p><strong>Fraud Risk Reasons (${result.fraudProbability}%):</strong></p>
+              ${fraudReasons.map(r => `<p class="fraud-reason">${r}</p>`).join('')}
+            ` : ''}
+            ${defaultReasons.length ? `
+              <p><strong>Default Risk Reasons (${result.defaultRisk}%):</strong></p>
+              ${defaultReasons.map(r => `<p class="default-reason">${r}</p>`).join('')}
+            ` : ''}
+          </td>
+        `;
+        
         tbody.appendChild(tr);
+        tbody.appendChild(detailsDiv);
       });
     }
 
@@ -200,6 +768,7 @@ block content
         alert('Please select an Excel file to upload.');
         return;
       }
+      
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
@@ -210,7 +779,7 @@ block content
           await analyzeData(jsonData);
         } catch (err) {
           console.error('File processing error:', err);
-          document.getElementById('alerts').innerHTML = 'Error processing file. Ensure it’s a valid Excel file.';
+          document.getElementById('alerts').innerHTML = 'Error processing file: ' + err.message;
           document.getElementById('alerts').style.display = 'block';
         }
       };
@@ -220,21 +789,34 @@ block content
     window.searchData = function() {
       const fraudQuery = document.getElementById('fraudSearch').value.toLowerCase();
       const defaultQuery = document.getElementById('defaultSearch').value.toLowerCase();
-      const filtered = users.filter(user =>
-        (fraudQuery && (user.name.toLowerCase().includes(fraudQuery) || user.email.toLowerCase().includes(fraudQuery))) ||
-        (defaultQuery && (user.name.toLowerCase().includes(defaultQuery) || user.email.toLowerCase().includes(defaultQuery)))
-      );
-      analyzeData(filtered);
+      
+      const storedUsers = JSON.parse(localStorage.getItem('highRiskUsers')) || [];
+      
+      const filtered = storedUsers.filter(user => {
+        const matchesFraud = fraudQuery && 
+          (user.name.toLowerCase().includes(fraudQuery) || 
+           user.email.toLowerCase().includes(fraudQuery));
+        
+        const matchesDefault = defaultQuery && 
+          (user.name.toLowerCase().includes(defaultQuery) || 
+           user.email.toLowerCase().includes(defaultQuery));
+        
+        return matchesFraud || matchesDefault;
+      });
+      
+      renderResults(filtered);
     };
 
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('details-btn')) {
-        const id = e.target.dataset.id;
-        const user = users.find(u => u.id == id);
-        if (user) {
-          alert(`Details for ${user.name}:\n${user.records.map(r => `${r.type}: $${r.amount} (${r.country})`).join('\n')}`);
-        }
+    window.toggleDetails = function(userId) {
+      const detailsDiv = document.getElementById(`details-${userId}`);
+      if (detailsDiv) {
+        detailsDiv.style.display = detailsDiv.style.display === 'none' ? 'table-row' : 'none';
       }
-    });
+    };
 
-    trainModels();
+    // Initialize
+    (async function() {
+      await trainModels();
+      const storedUsers = JSON.parse(localStorage.getItem('highRiskUsers')) || [];
+      renderResults(storedUsers);
+    })();

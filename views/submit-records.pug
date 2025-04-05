@@ -7,7 +7,7 @@ block content
       p.submit-description Share critical data on loan defaulters, fraudulent users, or illegitimate organizations securely.
 
     // Form Section
-    form.form.form--submit(action="/submit-records" method="POST")
+    form.form.form--submit(action="/submit" method="POST")
       .form__section
         .form__group
           label.form__label(for="action") Action Type
@@ -44,7 +44,7 @@ block content
 
     // Records List Section
     section.records-list
-      h3.records-title Submitted Records
+      h3.records-title Your Submitted Records
       if records && records.length > 0
         .table-wrapper
           table.records-table

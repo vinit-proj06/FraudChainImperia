@@ -9,7 +9,7 @@ aside.sidebar
     i.fa-brands.fa-envira.sidebar-logo-icon
     p.sidebar-logo-text FChain
   ul.sidebar-menu
-    // Always show Home for all users
+    // Always show Home for all users (logged in or not)
     +menuItem("/", "fa-solid fa-house icon", "Home", "")
     
     // If user is not logged in, show only Contact Us
@@ -18,19 +18,24 @@ aside.sidebar
     
     // If user is logged in, show role-specific menu items
     if user
-      +menuItem("/dashboard", "fa-solid fa-gauge icon", "Dashboard", "")
       if user.role === 'user'
+        +menuItem("/dashboard", "fa-solid fa-gauge icon", "Dashboard", "")
         +menuItem("/profile", "fa-solid fa-user icon", "Profile", "")
         +menuItem("/submit-records", "fa-solid fa-upload icon", "Submit Records", "")
         +menuItem("/contact", "fa-solid fa-envelope icon", "Contact Us", "")
+      
       else if user.role === 'org'
+        +menuItem("/dashboard", "fa-solid fa-gauge icon", "Dashboard", "")
         +menuItem("/log-audit-trail", "fa-solid fa-book icon", "Log Audit Trail", "")
         +menuItem("/profile", "fa-solid fa-user icon", "Profile", "")
         +menuItem("/submit-records", "fa-solid fa-upload icon", "Submit Records", "")
         +menuItem("/analyze", "fa-solid fa-chart-line icon", "Analyze", "")
         +menuItem("/contact", "fa-solid fa-envelope icon", "Contact Us", "")
+      
       else if user.role === 'validator'
+        +menuItem("/dashboard", "fa-solid fa-gauge icon", "Dashboard", "")
         +menuItem("/log-audit-trail", "fa-solid fa-book icon", "Log Audit Trail", "")
         +menuItem("/reviews", "fa-solid fa-star icon", "Reviews", "")
         +menuItem("/contact", "fa-solid fa-envelope icon", "Contact Us", "")
-      +menuItem("/logout", "fa-solid fa-right-from-bracket icon icon--logout", "Logout", "logout")
+     
+    +menuItem("/logout", "fa-solid fa-right-from-bracket icon icon--logout", "Logout", "logout")

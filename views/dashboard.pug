@@ -1,0 +1,246 @@
+extends base
+
+block content
+  .dashboard-container
+    // User Overview Section
+    .user-overview
+      .profile-card
+        if user.profileImage
+          img.profile-image(src=user.profileImage, alt="Profile")
+        else
+          .profile-default
+            i.fas.fa-user-circle
+        h2 Welcome, #{user.name}!
+        p.user-role 
+          i.fas.fa-shield-alt
+          | #{user.role}
+        p.last-login
+          i.fas.fa-clock
+          | Last login: #{new Date().toLocaleString()}
+          br
+          i.fas.fa-network-wired
+          | IP: 192.168.1.#{Math.floor(Math.random() * 100)}
+
+    // Key Metrics Cards
+    .metrics-grid
+      .metric-card
+        .metric-icon
+          i.fas.fa-file-alt
+        .metric-content
+          h3 Total Records
+          p= records.length.toLocaleString()
+      
+      .metric-card
+        .metric-icon
+          i.fas.fa-exclamation-triangle
+        .metric-content
+          h3 Fraud Cases
+          p= predictions.filter(p => p.actualOutcome === 'Fraud').length
+      
+      .metric-card
+        .metric-icon
+          i.fas.fa-bullseye
+        .metric-content
+          h3 Model Accuracy
+          p= (metrics.accuracy * 100).toFixed(1) + '%'
+      
+      .metric-card
+        .metric-icon
+          i.fas.fa-sync-alt
+        .metric-content
+          h3 Last Model Run
+          p= new Date(metrics.completedAt).toLocaleString()
+      
+      .metric-card
+        .metric-icon
+          i.fas.fa-chart-line
+        .metric-content
+          h3 Avg Fraud Probability
+          p= (predictions.reduce((sum, p) => sum + p.fraudProbability, 0) / predictions.length).toFixed(1) + '%'
+
+    // Recent Activity and Notifications
+    .activity-section
+      .recent-activity
+        h3
+          i.fas.fa-history
+          | Recent Activity
+        table.activity-table
+          thead
+            tr
+              th Transaction
+              th Status
+              th Date
+              th Action
+          tbody
+            each record in records.slice(0, 5)
+              tr
+                td= record.entity
+                td
+                  span.status-badge(class=record.action.toLowerCase())= record.action
+                td= new Date(record.submittedAt).toLocaleString()
+                td
+                  if record.action === 'Flagged'
+                    button.btn.btn-sm Review
+                  else
+                    button.btn.btn-sm View
+
+      .notifications
+        h3
+          i.fas.fa-bell
+          | Notifications
+        each notification in notifications.slice(0, 5)
+          .notification-item(class=notification.type)
+            .notification-icon
+              i(class={
+                'fas fa-exclamation-triangle': notification.type === 'warning',
+                'fas fa-times-circle': notification.type === 'error',
+                'fas fa-info-circle': notification.type === 'info',
+                'fas fa-check-circle': notification.type === 'success'
+              })
+            .notification-content
+              p= notification.message
+              small= new Date(notification.timestamp).toLocaleTimeString()
+
+    // Quick Access Tiles
+    .quick-access
+      h3 Quick Actions
+      .action-tiles
+        a.tile(href="/analyze")
+          i.fas.fa-search
+          span Analyze
+        a.tile(href="/submit")
+          i.fas.fa-plus-circle
+          span New Record
+        a.tile(href="/profile")
+          i.fas.fa-user-cog
+          span Profile
+        a.tile(href="/support")
+          i.fas.fa-headset
+          span Support
+        a.tile(href="/dataset")
+          i.fas.fa-database
+          span Dataset
+        a.tile(href="/reports")
+          i.fas.fa-file-download
+          span Reports
+
+    // Charts Section
+    .charts-section
+      .chart-container
+        h3 Fraud Cases Over Time
+        canvas#fraudChart
+      .chart-container
+        h3 Model Accuracy
+        canvas#accuracyChart
+
+    // Quick Upload Section
+    .upload-section
+      h3 Quick Upload
+      .upload-box
+        .upload-area
+          i.fas.fa-cloud-upload-alt
+          p Drag & Drop CSV file or
+          button.btn.btn-primary Browse Files
+        .recent-uploads
+          h4 Recent Uploads
+          ul
+            each _, i in Array(5).fill(0)
+              li
+                i.fas.fa-file-csv
+                | upload_#{i+1}.csv 
+                small= new Date(Date.now() - i * 86400000).toLocaleDateString()
+
+// Dummy data setup
+- 
+  var user = {
+    name: "John Analyst",
+    role: "Fraud Analyst",
+    profileImage: ""
+  };
+
+  var records = Array(15).fill().map((_, i) => ({
+    _id: `rec${i}`,
+    action: ['Pending', 'Flagged', 'Cleared'][i % 3],
+    entity: `Transaction ${1000 + i}`,
+    countryCode: ['US', 'UK', 'CA', 'AU'][i % 4],
+    amount: Math.floor(Math.random() * 10000),
+    submittedAt: new Date(Date.now() - i * 3600000)
+  }));
+
+  var predictions = Array(50).fill().map((_, i) => ({
+    transactionId: `txn${1000 + i}`,
+    fraudProbability: Math.floor(Math.random() * 100),
+    defaultRisk: Math.floor(Math.random() * 100),
+    actualOutcome: ['Fraud', 'Not Fraud', 'Pending'][i % 3],
+    timestamp: new Date(Date.now() - i * 3600000)
+  }));
+
+  var notifications = [
+    {
+      type: 'warning',
+      message: 'Unusual activity detected in transaction TXN-1042',
+      timestamp: new Date(Date.now() - 3600000)
+    },
+    {
+      type: 'success',
+      message: 'Model retraining completed successfully',
+      timestamp: new Date(Date.now() - 7200000)
+    },
+    {
+      type: 'info',
+      message: 'New fraud patterns detected in region US',
+      timestamp: new Date(Date.now() - 10800000)
+    },
+    {
+      type: 'error',
+      message: 'Failed to process batch upload',
+      timestamp: new Date(Date.now() - 14400000)
+    }
+  ];
+
+  var metrics = {
+    accuracy: 0.92,
+    f1Score: 0.89,
+    truePositive: 45,
+    falsePositive: 8,
+    falseNegative: 12,
+    trueNegative: 35,
+    completedAt: new Date(Date.now() - 86400000),
+    trainingRecords: 1250
+  };
+
+script(src="https://cdn.jsdelivr.net/npm/chart.js")
+script.
+  document.addEventListener('DOMContentLoaded', function() {
+    // Fraud Cases Chart
+    const fraudCtx = document.getElementById('fraudChart').getContext('2d');
+    new Chart(fraudCtx, {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+          label: 'Fraud Cases',
+          data: [12, 19, 8, 15, 12, 17],
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1
+        }]
+      }
+    });
+
+    // Accuracy Chart
+    const accuracyCtx = document.getElementById('accuracyChart').getContext('2d');
+    new Chart(accuracyCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+          label: 'Model Accuracy %',
+          data: [85, 86, 88, 89, 90, 92],
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1
+        }]
+      }
+    });
+  });
